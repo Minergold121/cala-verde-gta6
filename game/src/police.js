@@ -115,10 +115,10 @@ export function buildHeli(G) {
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 4.5), bodyMat);
   tail.position.set(0, 0.3, -4.2); g.add(tail);
   // Spotlight cone: a translucent cone from the belly to the ground.
-  const coneGeo = new THREE.ConeGeometry(7, 34, 18, 1, true);
+  const coneGeo = new THREE.ConeGeometry(7, 20, 18, 1, true);
   const coneMat = new THREE.MeshBasicMaterial({ color: 0xfff6c8, transparent: true, opacity: 0.30, side: THREE.DoubleSide, depthWrite: false });
   const cone = new THREE.Mesh(coneGeo, coneMat);
-  cone.position.y = -17;
+  cone.position.y = -10;
   g.add(cone);
   const spot = new THREE.SpotLight(0xfff6c8, 2.2, 90, 0.32, 0.4, 1);
   spot.position.set(0, -1, 0);
@@ -142,7 +142,7 @@ export function updateHeli(G, dt) {
   heli.visible = show;
   if (!show) { G.heliSnapped = false; return; }
   if (!G.heliSnapped) {
-    heli.position.set(s.player.x + 18, 34, s.player.z - 10);
+    heli.position.set(s.player.x + 14, 20, s.player.z - 8);
     G.heliSnapped = true;
   }
   const t = s.time * 0.45;
@@ -150,7 +150,7 @@ export function updateHeli(G, dt) {
   const tz = s.player.z + Math.cos(t) * 16;
   heli.position.x += (tx - heli.position.x) * Math.min(1, dt * 1.4);
   heli.position.z += (tz - heli.position.z) * Math.min(1, dt * 1.4);
-  heli.position.y = 34 + Math.sin(s.time * 0.8) * 1.5;
+  heli.position.y = 20 + Math.sin(s.time * 0.8) * 1.5;
   heli.rotation.y = Math.atan2(s.player.x - heli.position.x, s.player.z - heli.position.z);
   heli.userData.rotor.rotation.y += dt * 22;
   heli.userData.spot.target.position.set(s.player.x, 0, s.player.z);

@@ -2,7 +2,7 @@
 // stars, weapon slots, crew cards, dialogue portraits, speedometer, radio,
 // prompts and toasts — plus the garage / weapon-shop panel and its buying.
 import { CITY, DISTRICTS, CREW, SPEAKERS, RADIO, RANKS, rankFor, fmtCash, fmtClock, fmtTime, clamp, dist2 } from './config.js';
-import { districtAt, isLowTide, secondsToLowTide, secondsLowTideLeft } from './world.js';
+import { districtAt, isLowTide, secondsToLowTide, secondsLowTideLeft, tideLevel } from './world.js';
 import { dispatchList } from './police.js';
 import { currentJob, stageOf } from './missions.js';
 import { CAR_DEFS, WEAPON_DEFS } from './config.js';
@@ -231,7 +231,7 @@ export function updateHUD(G) {
   const low = isLowTide(s.tidePhase);
   const gauge = el('tide-gauge');
   if (gauge) {
-    const level = (Math.cos((s.tidePhase - TIDE.lowAt) * Math.PI * 2) + 1) / 2;
+    const level = (tideLevel(s.tidePhase) + 1) / 2;
     gauge.style.width = Math.round(level * 100) + '%';
     gauge.style.background = low ? 'linear-gradient(90deg,#e8b400,#ffd27a)' : 'linear-gradient(90deg,#1e90b8,#5ee6ff)';
   }

@@ -251,7 +251,7 @@ export function buildCity(G) {
 
 export function tideLevel(phase) {
   // -1 at low tide, +1 at high tide. Low tide centres on TIDE.lowAt.
-  return Math.cos((phase - TIDE.lowAt) * Math.PI * 2);
+  return -Math.cos((phase - TIDE.lowAt) * Math.PI * 2);
 }
 
 export function isLowTide(phase) {

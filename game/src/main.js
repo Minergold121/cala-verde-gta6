@@ -288,6 +288,12 @@ function frame(now) {
   // Staged screenshots: hold the composed frame still — the heli, camera and
   // HUD settle, but no car drives into a roadblock while the shot is taken.
   if (G.shotFreeze) {
+    G.focusPoint = { x: G.state.player.x, z: G.state.player.z };
+    if (G.playerMesh) {
+      G.playerMesh.position.set(G.state.player.x, 0, G.state.player.z);
+      G.playerMesh.rotation.y = G.state.player.yaw;
+      G.playerMesh.visible = G.state.player.onFoot;
+    }
     updateHeli(G, 0.016);
     updateChaseCamera(G, 0.016);
     updateHUD(G);

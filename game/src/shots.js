@@ -1,79 +1,109 @@
-// The screenshot scenes behind ?shot=start|play|end. Each one plays the real rules forward from a
-// fresh world for a fixed number of steps, steered by a simple autopilot (look ahead each way the
-// paddle could move, keep clear of blocks, chase the lowest coin when that is safe), so the frame
-// is what a short game really looks like and the same seed always gives the same frame.
-import { FIELD, PLAYER, STEP } from './config.js';
-import { EVENT_OVER, KIND_BLOCK } from './world.js';
-import { SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+// Screenshot staging behind ?shot=chase|foot|tide|garage (with &seed=N).
+// Each shot sets the REAL game state — a car, wanted stars, police, a
+// helicopter, a mission stage, a tide phase — then the normal loop renders
+// it, so every screenshot is a genuine frame of the game, reproducible
+// from the same seed. The loop keeps running; the shot is taken after the
+// scene settles.
+import { CITY, fmtCash } from './config.js';
+import { spawnCar, paintCar } from './vehicles.js';
+import { spawnThugs } from './combat.js';
+import { startJob } from './missions.js';
+import { openGarage } from './hud.js';
+import { isLowTide } from './world.js';
 
-const START_SECONDS = 5;
-const PLAY_SECONDS = 26;
-const END_LIMIT_SECONDS = 600;
-/**
- * How far ahead, in seconds, the autopilot checks each way it could move: the play scene's pilot
- * looks well ahead and keeps all its lives; the end scene's looks only a moment ahead, so it is
- * caught out once the blocks speed up, as a hurried player is.
- */
-const HORIZON_PLAY = 0.7;
-const HORIZON_END = 0.25;
-const SAMPLE = 1 / 30;
-const DIRECTIONS = [0, -1, 1];
-/** Extra room, each side, it keeps between the paddle and a block. */
-const MARGIN = 10;
-
-/** Seconds until moving in `direction` (-1, 0, 1) runs the paddle into a block; Infinity when it never does. */
-function timeToHit(state, direction, horizon) {
-  const player = state.player;
-  for (let t = SAMPLE; t <= horizon; t += SAMPLE) {
-    const x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * t));
-    for (let index = 0; index < state.items.length; index += 1) {
-      const item = state.items[index];
-      if (!item.active || item.kind !== KIND_BLOCK) continue;
-      const y = item.y + item.speed * t;
-      if (y + item.height > player.y && y < player.y + player.height && item.x < x + player.width + MARGIN && item.x + item.width > x - MARGIN) return t;
-    }
-  }
-  return Infinity;
+function placeChase(G) {
+  const s = G.state;
+  s.cash = 86250;
+  s.respect = 340;
+  s.wanted = 3;
+  s.health = 82;
+  s.armour = 45;
+  s.weapons[2].locked = false;
+  s.weapons[2].ammo = 96;
+  s.weapons[3].locked = false;
+  s.weapons[3].ammo = 18;
+  s.weaponIndex = 2;
+  s.clockMin = 18 * 60 + 40;
+  // Player mid-chase on the beachfront avenue, low behind the car.
+  const car = spawnCar(G, 'meridian', -170, 60, Math.PI / 2, { color: 0xc22e3a });
+  car.speed = 30;
+  s.player.carId = car.id;
+  s.player.onFoot = false;
+  s.player.x = car.x; s.player.z = car.z; s.player.yaw = car.yaw;
+  s.camYaw = Math.PI / 2;
+  if (G.playerMesh) G.playerMesh.visible = false;
+  // Police flanking the player car — visible behind it, never in its lane.
+  const p1 = spawnCar(G, 'interceptor', -176, 53, Math.PI / 2, { police: true });
+  p1.unitName = 'PELICAN-11'; p1.tactic = 'RAMMING'; p1.speed = 28;
+  const p2 = spawnCar(G, 'interceptor', -175, 67, Math.PI / 2, { police: true });
+  p2.unitName = 'GECKO-25'; p2.tactic = 'SPOTLIGHT'; p2.speed = 26;
+  const p3 = spawnCar(G, 'interceptor', -179, 57, Math.PI / 2, { police: true });
+  p3.unitName = 'AIR-1'; p3.tactic = 'ROADBLOCK'; p3.speed = 24;
+  G.policeSeq = 3;
+  // Traffic ahead on the avenue and a pedestrian on the sidewalk.
+  spawnCar(G, 'taxi', -115, 66, Math.PI / 2, { parked: true, color: 0xe8c832 });
+  if (G.peds && G.peds[0]) { G.peds[0].x = -140; G.peds[0].z = 76; G.peds[0].flee = 0; }
+  startJob(G, 7);
+  s.jobStage = 3;
+  G.say('dante', 'The boat sails in two minutes, Milo — and the whole CVPD is between you and it.');
+  G.setToast('GOLDEN HOUR — lose the manhunt before Dante\u2019s boat sails.');
+  void fmtCash;
 }
 
-/** Of the safe ways to move, the one toward the lowest coin (or the centre); else the one that is hit last. */
-function autopilot(state, horizon) {
-  const player = state.player;
-  let coin = null;
-  for (let index = 0; index < state.items.length; index += 1) {
-    const item = state.items[index];
-    if (item.active && item.kind !== KIND_BLOCK && (coin === null || item.y > coin.y)) coin = item;
+export function stageShot(G, name) {
+  const s = G.state;
+  s.mode = 'play';
+  G.shotFreeze = true;
+  document.getElementById('hud').classList.add('on');
+  document.getElementById('start-screen').classList.remove('on');
+  if (name === 'foot') {
+    // On foot in Old Town with crew dialogue, mission panel live.
+    s.player.x = -60; s.player.z = -140; s.player.onFoot = true; s.player.carId = null;
+    s.camYaw = 0.6;
+    s.cash = 12480;
+    s.respect = 120;
+    s.clockMin = 18 * 60 + 22;
+    if (G.playerMesh) { G.playerMesh.visible = true; }
+    spawnThugs(G, -52, -128, 2);
+    startJob(G, 3);
+    G.say('june', 'Vultures took the marked car, Milo. Sana has eyes on the street — take it back.');
+    G.setToast('MARKED MERIDIAN — repossess the Vulture car.');
+    return;
   }
-  const target = coin === null ? FIELD.width / 2 : coin.x + coin.width / 2;
-  const centre = player.x + player.width / 2;
-  const wanted = target > centre + 8 ? 1 : target < centre - 8 ? -1 : 0;
-  let best = wanted;
-  let bestTime = timeToHit(state, wanted, horizon);
-  for (let index = 0; index < DIRECTIONS.length && bestTime !== Infinity; index += 1) {
-    const time = timeToHit(state, DIRECTIONS[index], horizon);
-    if (time > bestTime) {
-      bestTime = time;
-      best = DIRECTIONS[index];
-    }
+  if (name === 'tide') {
+    // Low tide: causeway exposed, stash island ahead, gauge at the window.
+    s.tidePhase = 0.5;
+    s.player.x = -238; s.player.z = CITY.islandZ; s.player.onFoot = false;
+    const car = spawnCar(G, 'sunrunner', -238, CITY.islandZ, -Math.PI / 2, { color: 0xe8a33d });
+    car.speed = 12;
+    s.player.carId = car.id;
+    s.player.yaw = car.yaw;
+    if (G.playerMesh) G.playerMesh.visible = false;
+    s.cash = 21400;
+    s.respect = 210;
+    s.clockMin = 17 * 60 + 55;
+    startJob(G, 2);
+    G.say('sana', 'Low tide, Milo — the causeway is open. The stash island is right there. Go, go, go!');
+    G.setToast('LOW TIDE — the causeway is open!');
+    return;
   }
-  return best;
-}
-
-/**
- * Set `world` to the named scene (start, play or end; any other name is start) and return the
- * screen to draw over it and the best score to show.
- */
-export function stageShot(name, world) {
-  world.reset();
-  if (name !== 'play' && name !== 'end') {
-    for (let index = 0; index < START_SECONDS / STEP; index += 1) world.step(STEP, 0, true);
-    return { screen: SCREEN_TITLE, best: 0 };
+  if (name === 'garage') {
+    // Garage overlay over the 3D street, car + upgrades + cash + respect.
+    s.player.x = 30; s.player.z = 12; s.player.onFoot = true; s.player.carId = null;
+    s.camYaw = 2.6;
+    s.cash = 18450;
+    s.respect = 310;
+    s.ownedCars = ['dockside', 'meridian', 'sunrunner'];
+    s.engineLevel = 2; s.armourLevel = 1;
+    if (G.playerMesh) G.playerMesh.visible = true;
+    spawnCar(G, 'meridian', 30, 12, Math.PI / 2, { color: 0xc22e3a, engineLevel: 2, armourLevel: 1 });
+    startJob(G, 4);
+    G.say('tomas', 'Engine tune two, armour one — she\u2019ll eat the roadblock for breakfast, Milo.');
+    // Open the garage a beat after the first frame so the 3D scene is behind it.
+    setTimeout(() => { if (G.state.mode === 'play') openGarage(G); }, 350);
+    return;
   }
-  const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const horizon = name === 'end' ? HORIZON_END : HORIZON_PLAY;
-  for (let index = 0; index < limit / STEP; index += 1) {
-    if (world.step(STEP, autopilot(world.state, horizon), false) & EVENT_OVER) break;
-  }
-  const over = world.state.lives === 0;
-  return { screen: over ? SCREEN_OVER : SCREEN_PLAY, best: world.state.score };
+  // Default: the cover chase.
+  placeChase(G);
+  void isLowTide;
 }

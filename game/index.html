@@ -3,17 +3,253 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>CALA VERDE — 3D Open-World Crime</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a0f1e; font-family: "Segoe UI", Verdana, sans-serif; color: #fff; }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .panel { background: rgba(12, 8, 20, 0.72); border: 1px solid rgba(255, 190, 90, 0.45); border-radius: 10px; padding: 10px 12px; backdrop-filter: blur(3px); box-shadow: 0 4px 18px rgba(0,0,0,0.45); }
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 5; }
+  #hud.on { display: block; }
+  #mission-panel { position: absolute; top: 14px; left: 14px; width: 340px; }
+  #job-title { font-size: 19px; font-weight: 800; letter-spacing: 1px; color: #ffd27a; text-shadow: 0 2px 6px #000; }
+  #job-sub { font-size: 11px; letter-spacing: 2px; color: #ffb3c8; margin-top: 2px; }
+  #stage-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+  #stage-bar-outer { flex: 1; height: 10px; background: #2a2030; border: 1px solid #6b5a3a; border-radius: 6px; overflow: hidden; }
+  #stage-bar { height: 100%; width: 20%; background: linear-gradient(90deg, #ff9a3d, #ff4d6d); }
+  #stage-label { font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap; }
+  #next-objective { margin-top: 7px; font-size: 14px; line-height: 1.35; }
+  #next-objective b { color: #8ef0ff; }
+  #objective-dist { font-size: 12px; color: #ffd27a; margin-top: 3px; }
+  #tide-panel { position: absolute; top: 158px; left: 14px; width: 340px; }
+  #tide-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; letter-spacing: 1.5px; color: #8ef0ff; }
+  #tide-countdown { color: #ffd27a; }
+  #tide-gauge-outer { height: 12px; margin-top: 6px; background: #10222b; border: 1px solid #3d7f94; border-radius: 6px; overflow: hidden; position: relative; }
+  #tide-gauge { height: 100%; width: 60%; background: linear-gradient(90deg, #1e90b8, #5ee6ff); }
+  #tide-window { position: absolute; left: 0; top: 0; bottom: 0; width: 26%; background: rgba(255, 210, 122, 0.35); border-right: 2px solid #ffd27a; }
+  #tide-note { font-size: 12px; margin-top: 5px; color: #d8f6ff; }
+  #dispatch-panel { position: absolute; left: 14px; top: 268px; width: 300px; }
+  #dispatch-head { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #ff8a8a; }
+  #dispatch-head span { color: #fff; }
+  .unit { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,0.18); }
+  .unit:last-child { border-bottom: none; }
+  .unit .uname { font-weight: 800; color: #fff; }
+  .unit .udist { color: #ffd27a; font-variant-numeric: tabular-nums; }
+  .chip { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.5px; }
+  .chip.red { background: #d81f3a; color: #fff; }
+  .chip.blue { background: #1e6fd8; color: #fff; }
+  .chip.yellow { background: #e8b400; color: #1a1a1a; }
+  .chip.green { background: #2e9e5b; color: #fff; }
+  #dispatch-empty { font-size: 13px; color: #bfe9c9; padding-top: 4px; }
+  #minimap-wrap { position: absolute; left: 14px; bottom: 14px; width: 230px; }
+  #minimap-box { position: relative; width: 176px; height: 176px; }
+  #minimap { width: 176px; height: 176px; border-radius: 50%; border: 3px solid rgba(255, 210, 122, 0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.6); background: #0d1a24; display: block; }
+  #minimap-n { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); font-weight: 900; color: #ffd27a; text-shadow: 0 1px 4px #000; font-size: 14px; }
+  #district-name { font-size: 17px; font-weight: 800; color: #fff; text-shadow: 0 2px 5px #000; margin-top: 6px; }
+  #standing-row { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #ffd27a; margin-top: 3px; }
+  #standing-bar-outer { flex: 1; height: 8px; background: #2a2030; border-radius: 5px; overflow: hidden; border: 1px solid #6b5a3a; }
+  #standing-bar { height: 100%; width: 50%; background: linear-gradient(90deg, #37d67a, #ffd27a); }
+  .vital { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 800; margin-top: 4px; }
+  .vital .bar-outer { flex: 1; height: 9px; background: #241a26; border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.25); }
+  #health-bar { height: 100%; width: 100%; background: #37d67a; }
+  #armour-bar { height: 100%; width: 0%; background: #5ea8ff; }
+  #respect-rank { font-size: 12px; font-weight: 800; color: #ffb3c8; margin-top: 5px; letter-spacing: 1px; }
+  #top-right { position: absolute; top: 14px; right: 14px; text-align: right; }
+  #cash { font-size: 34px; font-weight: 900; color: #7dff9a; text-shadow: 0 2px 8px #000; font-variant-numeric: tabular-nums; }
+  #stars { font-size: 26px; letter-spacing: 4px; margin-top: 2px; text-shadow: 0 2px 6px #000; }
+  #stars .lit { color: #ffd23d; }
+  #stars .dim { color: rgba(255,255,255,0.35); }
+  #clock-line { font-size: 14px; font-weight: 700; color: #fff; margin-top: 3px; text-shadow: 0 1px 4px #000; }
+  #rank-line { font-size: 12px; color: #ffd27a; font-weight: 700; letter-spacing: 1px; text-shadow: 0 1px 4px #000; }
+  #weapon-panel { position: absolute; right: 14px; top: 168px; width: 190px; }
+  #weapon-head { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #ffd27a; margin-bottom: 5px; }
+  .wslot { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; margin-bottom: 4px; border-radius: 6px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); font-size: 13px; }
+  .wslot.active { background: rgba(255, 154, 61, 0.35); border-color: #ffd27a; }
+  .wslot.locked { opacity: 0.55; }
+  .wslot .wkey { font-weight: 900; color: #ffd27a; margin-right: 6px; }
+  .wslot .wammo { color: #8ef0ff; font-variant-numeric: tabular-nums; }
+  #crew-panel { position: absolute; right: 14px; top: 400px; width: 190px; }
+  #crew-head { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #ffb3c8; margin-bottom: 5px; }
+  .crew-card { display: flex; gap: 8px; align-items: center; padding: 6px 8px; margin-bottom: 5px; border-radius: 6px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); }
+  .crew-card.ready { border-color: #7dff9a; }
+  .crew-card canvas { width: 34px; height: 34px; border-radius: 50%; flex: none; }
+  .crew-card .cname { font-size: 12px; font-weight: 800; }
+  .crew-card .cability { font-size: 11px; color: #8ef0ff; font-weight: 700; letter-spacing: 0.5px; }
+  .crew-card .ckey { font-size: 10px; color: #ffd27a; }
+  #dialogue { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: 560px; max-width: 52vw; display: flex; gap: 12px; align-items: center; }
+  #portrait { width: 64px; height: 64px; border-radius: 50%; border: 2px solid #ffd27a; flex: none; background: #243447; }
+  #speaker-name { font-size: 13px; font-weight: 900; letter-spacing: 1.5px; color: #ffd27a; }
+  #dialogue-line { font-size: 15px; line-height: 1.4; margin-top: 2px; }
+  #speedo { position: absolute; right: 14px; bottom: 14px; width: 220px; text-align: right; }
+  #speed-num { font-size: 52px; font-weight: 900; line-height: 1; text-shadow: 0 3px 10px #000; font-variant-numeric: tabular-nums; }
+  #speed-unit { font-size: 14px; color: #ffd27a; font-weight: 800; }
+  #vehicle-name { font-size: 15px; font-weight: 800; margin-top: 2px; text-shadow: 0 1px 4px #000; }
+  #condition-outer { height: 9px; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.35); border-radius: 5px; overflow: hidden; margin-top: 5px; }
+  #condition-bar { height: 100%; width: 100%; background: #37d67a; }
+  #gear-line { font-size: 12px; color: #8ef0ff; font-weight: 700; margin-top: 4px; }
+  #radio-line { position: absolute; right: 14px; top: 118px; font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 1px 4px #000; text-align: right; }
+  #radio-line b { color: #ff9a3d; }
+  #help-line { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,0.75); text-shadow: 0 1px 3px #000; white-space: nowrap; }
+  #prompt { position: absolute; left: 50%; top: 56%; transform: translateX(-50%); font-size: 17px; font-weight: 900; letter-spacing: 1px; background: rgba(0,0,0,0.65); border: 1px solid #ffd27a; border-radius: 8px; padding: 8px 16px; display: none; }
+  #toast { position: absolute; left: 50%; top: 120px; transform: translateX(-50%); font-size: 16px; font-weight: 800; color: #ffd27a; text-shadow: 0 2px 6px #000; text-align: center; }
+  #crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 22px; color: rgba(255,255,255,0.85); text-shadow: 0 1px 4px #000; display: none; }
+  #wanted-flash { position: absolute; inset: 0; border: 3px solid rgba(255, 40, 60, 0.0); pointer-events: none; }
+  .overlay { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: rgba(8, 4, 14, 0.72); }
+  .overlay.on { display: flex; }
+  .sheet { width: 720px; max-width: 94vw; max-height: 92vh; overflow-y: auto; background: linear-gradient(160deg, #2b1533, #141021); border: 2px solid #ff9a3d; border-radius: 14px; padding: 26px 30px; box-shadow: 0 18px 60px rgba(0,0,0,0.7); }
+  .sheet h1 { margin: 0; font-size: 44px; letter-spacing: 3px; color: #ffd27a; }
+  .sheet h1 span { color: #ff4d6d; }
+  .sheet h2 { margin: 0 0 8px; font-size: 26px; letter-spacing: 2px; color: #ffd27a; }
+  .tagline { color: #ffb3c8; letter-spacing: 2px; font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .story { font-size: 15px; line-height: 1.55; margin: 14px 0; color: #f2e9ff; }
+  .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; font-size: 13px; margin: 10px 0 16px; }
+  .controls-grid b { color: #8ef0ff; }
+  .btn { pointer-events: auto; cursor: pointer; border: none; border-radius: 8px; padding: 11px 20px; font-size: 15px; font-weight: 900; letter-spacing: 1px; background: linear-gradient(90deg, #ff9a3d, #ff4d6d); color: #fff; margin-right: 10px; }
+  .btn.ghost { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.4); }
+  .btn.small { padding: 7px 12px; font-size: 13px; }
+  #save-info { font-size: 13px; color: #8ef0ff; margin-bottom: 14px; }
+  .fine { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 14px; line-height: 1.5; }
+  .garage-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 4px; border-bottom: 1px solid rgba(255,255,255,0.15); font-size: 14px; }
+  .garage-row .gname { font-weight: 800; }
+  .garage-row .gdesc { font-size: 12px; color: #cdbce0; }
+  .swatch { display: inline-block; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; margin: 0 5px 5px 0; cursor: pointer; pointer-events: auto; }
+  .tabs { margin-bottom: 10px; }
+  .tabs button { pointer-events: auto; cursor: pointer; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 7px 14px; font-weight: 800; margin-right: 6px; }
+  .tabs button.sel { background: #ff9a3d; color: #1a0f1e; }
+  #complete-stats { font-size: 16px; line-height: 1.7; margin: 12px 0; }
+  #complete-stats b { color: #7dff9a; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
+<canvas id="scene" aria-label="Cala Verde: a 3D open-world crime game"></canvas>
 <p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div id="mission-panel" class="panel">
+    <div id="job-title">JOB 1/10 · FIRST FARE</div>
+    <div id="job-sub">AUNT CELIA · CALA VERDE</div>
+    <div id="stage-row"><div id="stage-bar-outer"><div id="stage-bar"></div></div><div id="stage-label">STAGE 1/4</div></div>
+    <div id="next-objective">NEXT: <b>Drive to the marina drop.</b></div>
+    <div id="objective-dist">▸ 214 m · follow the gold marker</div>
+  </div>
+  <div id="tide-panel" class="panel">
+    <div id="tide-head"><span>◉ TIDE-RUN</span><span id="tide-countdown">LOW TIDE IN 01:12</span></div>
+    <div id="tide-gauge-outer"><div id="tide-window"></div><div id="tide-gauge"></div></div>
+    <div id="tide-note">Causeway to the stash island opens at low tide.</div>
+  </div>
+  <div id="dispatch-panel" class="panel">
+    <div id="dispatch-head">CVPD DISPATCH <span id="dispatch-count">· 0 UNITS</span></div>
+    <div id="dispatch-list"></div>
+    <div id="dispatch-empty">No units assigned. Keep it clean, Milo.</div>
+  </div>
+  <div id="minimap-wrap">
+    <div id="minimap-box"><canvas id="minimap" width="176" height="176"></canvas><div id="minimap-n">N</div></div>
+    <div id="district-name">Marina Verde</div>
+    <div id="standing-row"><span>STANDING</span><div id="standing-bar-outer"><div id="standing-bar"></div></div><span id="standing-val">50</span></div>
+    <div class="vital"><span>HP</span><div class="bar-outer"><div id="health-bar"></div></div><span id="health-val">100</span></div>
+    <div class="vital"><span>ARMOUR</span><div class="bar-outer"><div id="armour-bar"></div></div><span id="armour-val">0</span></div>
+    <div id="respect-rank">RANK: HUSTLER · 0 RESPECT</div>
+  </div>
+  <div id="top-right">
+    <div id="cash">$2,400</div>
+    <div id="stars"></div>
+    <div id="clock-line">18:40 · GOLDEN HOUR · DAY 1</div>
+    <div id="rank-line">JOBS DONE 0/10 · CARS STOLEN 0</div>
+  </div>
+  <div id="weapon-panel" class="panel">
+    <div id="weapon-head">WEAPONS · 1–5</div>
+    <div id="weapon-slots"></div>
+  </div>
+  <div id="crew-panel">
+    <div id="crew-head">CREW · Q / Z / X</div>
+    <div id="crew-cards"></div>
+  </div>
+  <div id="dialogue" class="panel">
+    <canvas id="portrait" width="128" height="128"></canvas>
+    <div><div id="speaker-name">AUNT CELIA</div><div id="dialogue-line">Milo, the docks made you fast. Now make me rich.</div></div>
+  </div>
+  <div id="speedo">
+    <div><span id="speed-num">0</span> <span id="speed-unit">km/h</span></div>
+    <div id="vehicle-name">ON FOOT · MILO FERREIRA</div>
+    <div id="condition-outer"><div id="condition-bar"></div></div>
+    <div id="gear-line">GEAR N · Verde FM 98.1</div>
+  </div>
+  <div id="radio-line">♪ <b>Verde FM 98.1</b> — Sunset Drive</div>
+  <div id="prompt"></div>
+  <div id="toast"></div>
+  <div id="crosshair">＋</div>
+  <div id="help-line">WASD drive / walk · Mouse drag look · E enter &amp; steal car · Click / F shoot · 1–5 weapons · R radio · G garage · M jobs · P pause · H horn</div>
+</div>
+<div id="wanted-flash"></div>
+
+<div id="start-screen" class="overlay on">
+  <div class="sheet">
+    <h1>CALA <span>VERDE</span></h1>
+    <div class="tagline">SUN-SOAKED 3D OPEN-WORLD CRIME · 10 STORY JOBS · TIDE-RUN SMUGGLING</div>
+    <p class="story">Milo Ferreira, wheelman fresh out of the Cala Verde docks, works for fixer <b>Aunt Celia</b> with crew June Park, Tomas Reyes and Sana Mir — while Dante Kroll's Vultures and the CVPD close in. Twice a day the tide drops and a sandbar causeway opens to a stash island. Drive it, steal it, lose the heat, and take the King Tide.</p>
+    <div class="controls-grid">
+      <div><b>W A S D</b> — drive / walk</div><div><b>Mouse drag</b> — look around</div>
+      <div><b>E</b> — enter, exit &amp; steal cars</div><div><b>Click / F</b> — shoot weapon</div>
+      <div><b>1–5</b> — weapon slots</div><div><b>Space</b> — handbrake</div>
+      <div><b>R</b> — change radio station</div><div><b>G</b> — garage &amp; shop (at marker)</div>
+      <div><b>Q / Z / X</b> — crew abilities</div><div><b>M</b> — job list · <b>P</b> — pause</div>
+    </div>
+    <div id="save-info">No save yet — a fresh tide in Cala Verde.</div>
+    <button class="btn" id="btn-continue">CONTINUE</button>
+    <button class="btn ghost" id="btn-new">NEW GAME</button>
+    <p class="fine">A complete open world: traffic, pedestrians, 5-star CVPD dispatch with roadblocks and Air One helicopter, carjacking, combat, garage upgrades, weapon shop, respect ranks, district standing, two radio stations, saves. No network — everything runs from these files. Original city, characters and story; nothing from any commercial game.</p>
+  </div>
+</div>
+
+<div id="pause-menu" class="overlay">
+  <div class="sheet">
+    <h2>PAUSED — CALA VERDE</h2>
+    <p class="story" id="pause-info">Take a breath. The tide keeps its own clock.</p>
+    <button class="btn" id="btn-resume">RESUME</button>
+    <button class="btn ghost" id="btn-garage2">GARAGE &amp; SHOP</button>
+    <button class="btn ghost" id="btn-save-quit">SAVE &amp; TITLE</button>
+    <div class="controls-grid" style="margin-top:18px">
+      <div><b>W A S D</b> — drive / walk</div><div><b>E</b> — enter / steal car</div>
+      <div><b>Click / F</b> — shoot</div><div><b>1–5</b> — weapons</div>
+      <div><b>R</b> — radio</div><div><b>G</b> — garage at marker</div>
+    </div>
+  </div>
+</div>
+
+<div id="garage-panel" class="overlay">
+  <div class="sheet">
+    <h2 id="garage-title">CELIA'S GARAGE — CALA VERDE</h2>
+    <p class="story" style="margin:6px 0 12px">Cash: <b id="garage-cash" style="color:#7dff9a">$2,400</b> · Your ride waits outside. Upgrades stay on the car you drive.</p>
+    <div class="tabs">
+      <button data-tab="cars" class="sel">CARS</button>
+      <button data-tab="upgrades">UPGRADES</button>
+      <button data-tab="paint">PAINT</button>
+      <button data-tab="shop">WEAPON SHOP</button>
+    </div>
+    <div id="garage-list"></div>
+    <div style="margin-top:16px"><button class="btn" id="btn-close-garage">BACK TO THE STREET</button></div>
+  </div>
+</div>
+
+<div id="complete-screen" class="overlay">
+  <div class="sheet">
+    <h2 id="complete-title">JOB COMPLETE</h2>
+    <div id="complete-stats"></div>
+    <button class="btn" id="btn-next-job">NEXT JOB</button>
+    <button class="btn ghost" id="btn-free-roam">FREE ROAM</button>
+  </div>
+</div>
+
+<div id="wasted-screen" class="overlay">
+  <div class="sheet">
+    <h2>WASTED</h2>
+    <p class="story">The CVPD pulled Milo out of the wreck. Celia paid the tow — and kept the change. You wake at the marina clinic, cash lighter, heat gone.</p>
+    <button class="btn" id="btn-retry">BACK ON YOUR FEET</button>
+  </div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
